@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd http://www.springframework.org/schema/cache http://www.springframework.org/schema/cache/spring-cache.xsd http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd">
+
+    <!-- Spring的配置文件，主要配置与业务逻辑有关的 -->
+    <!-- Spring的核心配置：数据源、与mybatis的整合、事务控制 -->
+    <!-- 约束的名称空间不要导错！否则错误满天飞！ -->
+
+    <!-- ==================================================================================== -->
+
+    <context:component-scan base-package="com.myself">
+        <!-- 除了控制器外都扫描 -->
+        <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+    </context:component-scan>
+
+    <!-- ==================================================================================== -->
+
+    <!-- 导入外部配置文件 -->
+    <context:property-placeholder location="classpath:dbconfig.properties"/>
+
+    <!-- 数据源 -->
+    <bean id="pooledDataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+        <property name="driverClass" value="${jdbc.driverClass}"/>
+        <property name="user" value="${jdbc.username}"/>
+        <property name="password" value="${jdbc.password}"/>
+        <property name="jdbcUrl" value="${jdbc.jdbcUrl}"/>
+    </bean>
+
+    <!-- ==================================================================================== -->
+
+    <!-- 配置整合MyBatis -->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <!-- 指定MyBatis全局配置文件的位置 -->
+        <property name="configLocation" value="classpath:mybatis-config.xml"/>
+        <property name="dataSource" ref="pooledDataSource"/>  <!-- 这是ref，引用其它bean -->
+        <!-- 指定mybatis的mapper文件的位置 -->
+        <property name="mapperLocations" value="classpath:mapper/*.xml"/>
+    </bean>
+
+    <!-- 配置扫描器，将mybatis接口的实现加入到ioc容器中 -->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <property name="basePackage" value="com.myself.crud.dao"/>
+    </bean>
+
+    <!-- 配置一个可以执行批量操作的sqlSession -->
+    <bean id="sqlSession" class="org.mybatis.spring.SqlSessionTemplate">
+        <constructor-arg name="sqlSessionFactory" ref="sqlSessionFactory"/>  <!-- 引用上面那个整合的factory -->
+        <constructor-arg name="executorType" value="BATCH"/>  <!-- 执行器：批量（默认不是批量的，所以需要指定） -->
+    </bean>
+
+    <!-- ==================================================================================== -->
+
+    <!-- 事务控制的配置 -->
+    <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="pooledDataSource"/>  <!-- 控制住数据源 -->
+    </bean>
+
+    <!-- 开启基于注解的事务，或者使用xml配置形式的事务（一般重要的使用配置形式） -->
+    <aop:config>
+        <!-- 切入点表达式 -->
+        <aop:pointcut id="txPoint" expression="execution(* com.myself.crud.service..*(..))"/>
+        <!-- 配置事务增强 -->
+        <aop:advisor advice-ref="txAdvice" pointcut-ref="txPoint"/>
+    </aop:config>
+
+    <!-- 上面是：哪些方法需要切入；下面是：切入后，具体细节如何实现 -->
+
+    <!-- 配置事务增强，事务如何切入 -->
+    <tx:advice id="txAdvice" transaction-manager="transactionManager">
+        <tx:attributes>
+            <!-- 所有方法都是事务方法 -->
+            <tx:method name="*"/>
+            <!-- 以get开始的所有方法，我们默认都是查询方法，为了调优，可以设置为只读 -->
+            <tx:method name="get*" read-only="true"/>
+        </tx:attributes>
+    </tx:advice>
+
+    <!-- ==================================================================================== -->
+
+</beans>
