@@ -85,7 +85,7 @@
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>4.12</version>
+      <version>4.13.1</version>
       <!--<scope>test</scope>-->  <!-- 若不在maven约定的test下使用，则不要使用scope-test作用域！ -->
     </dependency>
 
